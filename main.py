@@ -3,8 +3,10 @@ from googletrans import Translator
 import os
 import xml.etree.ElementTree as ET
 from xml.dom import minidom
+from concurrent.futures import ThreadPoolExecutor
 
-base_path = "/home/unify/Documents/string translator/ex/"
+base_path = "/home/unify/Documents/patient-sep/uc-patient-android/core/designsystem/src/main/res/"
+
 
 def get_language_folders():
     language_folders = [
@@ -37,16 +39,23 @@ def extract_language_code(values_folder):
 translations = {}
 
 values_folders = get_language_folders()
-for folder in values_folders:
+
+# Use ThreadPoolExecutor to parallelize string extraction
+def extract_strings_for_folder(folder):
     strings_file = base_path + folder + "/strings.xml"
     string_map = extract_strings_from_xml(strings_file)
     lan_code = extract_language_code(folder)
     print(f"{lan_code} count = {len(string_map)}")
     translations[lan_code] = string_map
 
+# Run string extraction in parallel using ThreadPoolExecutor
+with ThreadPoolExecutor() as executor:
+    executor.map(extract_strings_for_folder, values_folders)
+
 async def check_all_strings_exist_in_other_languages():
     en_strings = translations.get("en", {})
     async with Translator() as translator:
+        tasks = []
         for lang, strings in translations.items():
             if lang == "en":
                 continue
@@ -54,11 +63,16 @@ async def check_all_strings_exist_in_other_languages():
                 if key not in strings:
                     to_translate = en_strings[key]
                     print("Not translated to " + lang + ":", to_translate)
-                    result = await translator.translate(to_translate, dest = lang, src ="en")
-                    strings[key] = result.text
+                    task = translator.translate(to_translate, dest=lang, src="en")
+                    tasks.append((key, lang, task))  # Added lang to the task
+
+        results = await asyncio.gather(*[task[2] for task in tasks])  # Use task[2] for results
+        for i, (key, lang, result) in enumerate(
+                zip([task[0] for task in tasks], [task[1] for task in tasks], results)):
+            strings = translations[lang]
+            strings[key] = result.text
     print(translations)
     create_xml_from_translations()
-
 
 def prettify_xml(element):
     """Return a pretty-printed XML string for the Element."""
