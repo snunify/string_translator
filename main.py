@@ -5,7 +5,7 @@ import xml.etree.ElementTree as ET
 from xml.dom import minidom
 from concurrent.futures import ThreadPoolExecutor
 
-base_path = "/home/unify/Documents/uc/uc-patient-android/core/designsystem/src/main/res/"
+base_path = "/core/designsystem/src/main/res/"
 
 
 def get_language_folders():
@@ -91,7 +91,7 @@ def create_xml_from_translations():
         for key, value in strings.items():
             attributes = {"name": key}
             if key == "in_progress":
-                attributes["tools:url"] = "https://example.com/docs/in_progress"
+                attributes["tools:ignore"] = "PrivateResource"
             string_element = ET.SubElement(root, "string", attributes)
             string_element.text = value
 
